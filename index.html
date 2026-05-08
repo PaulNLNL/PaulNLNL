@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Capital Investment Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--surface:#161b22;--surface2:#21262d;--border:#30363d;
+  --text:#e6edf3;--muted:#8b949e;
+  --sw:#bc8cff;--hw:#58a6ff;--dc:#3fb950;--nbv:#f0883e;--ai:#f85149;--gfcf:#6e7681;
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;padding:14px;max-width:780px;margin:0 auto}
+h1{font-size:19px;font-weight:700;margin-bottom:4px}
+.subtitle{color:var(--muted);font-size:12px;margin-bottom:16px;line-height:1.5}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px}
+.card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap}
+h2{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.stats{display:flex;gap:8px;margin-bottom:12px}
+.stat{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:10px 12px;min-width:0}
+.stat-val{font-size:20px;font-weight:700;line-height:1;white-space:nowrap}
+.stat-lab{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.4}
+.ctrl{display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.ctrl-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;flex:0 0 100%;margin-bottom:2px}
+.btn{background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:6px 11px;border-radius:5px;cursor:pointer;font-size:12px;line-height:1;transition:border-color .12s,color .12s,background .12s;-webkit-tap-highlight-color:transparent;white-space:nowrap}
+.btn:active{opacity:.8}
+.btn.on{background:rgba(88,166,255,.15);border-color:#58a6ff;color:var(--text)}
+.chart-wrap{position:relative;height:260px}
+.chart-note{position:absolute;top:6px;right:6px;font-size:10px;color:var(--muted);background:var(--surface2);padding:2px 7px;border-radius:4px;border:1px solid var(--border)}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.leg{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)}
+.dot{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+table{width:100%;border-collapse:collapse;font-size:11px;display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
+th{background:var(--surface2);color:var(--muted);padding:6px 8px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--border);font-weight:500;position:sticky;top:0}
+th:first-child{text-align:left}
+td{padding:5px 8px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap}
+td:first-child{text-align:left;color:var(--muted);font-weight:500}
+tr:hover td{background:var(--surface2)}
+.proj td{opacity:.62}
+details summary{cursor:pointer;font-size:12px;color:var(--muted);margin-bottom:10px;user-select:none}
+.src{font-size:11px;color:var(--muted);line-height:1.7}
+.src p{margin-bottom:8px}
+.src a{color:#58a6ff;text-decoration:none}
+@media(max-width:480px){
+  .stat-val{font-size:17px}
+  .chart-wrap{height:230px}
+  h1{font-size:17px}
+}
+</style>
+</head>
+<body>
+
+<h1>AI Capital Investment</h1>
+<p class="subtitle">Global investment in AI infrastructure 2016–2035 · vs. world capital formation · updated May 2026</p>
+
+<div class="stats">
+  <div class="stat">
+    <div class="stat-val" style="color:var(--ai)">$451B</div>
+    <div class="stat-lab">Total AI capex 2024</div>
+  </div>
+  <div class="stat">
+    <div class="stat-val" style="color:var(--hw)">2.7%</div>
+    <div class="stat-lab">of global capex by 2026</div>
+  </div>
+  <div class="stat">
+    <div class="stat-val" style="color:var(--dc)">$103</div>
+    <div class="stat-lab">per person/yr by 2026</div>
+  </div>
+</div>
+
+<div class="ctrl">
+  <span class="ctrl-lbl">Scale</span>
+  <button class="btn on" data-scale="abs">Absolute ($B)</button>
+  <button class="btn" data-scale="user">Per AI User ($)</button>
+  <button class="btn" data-scale="cap">Per World Capita ($)</button>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h2>AI Investment by Category</h2>
+    <button class="btn" id="nbvBtn">+ Net Book Value</button>
+  </div>
+  <div class="chart-wrap">
+    <canvas id="c1"></canvas>
+    <div class="chart-note">faded bars = projected</div>
+  </div>
+  <div class="legend">
+    <div class="leg"><div class="dot" style="background:var(--sw)"></div>Software (3yr life)</div>
+    <div class="leg"><div class="dot" style="background:var(--hw)"></div>Hardware / GPUs (4yr life)</div>
+    <div class="leg"><div class="dot" style="background:var(--dc)"></div>Data Centres (30yr life)</div>
+    <div class="leg" id="nbvLeg" style="display:none"><div class="dot" style="background:var(--nbv);border-radius:50%"></div>Net Book Value (right axis)</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h2>Global Context</h2>
+    <div style="display:flex;gap:5px">
+      <button class="btn on" data-comp="pct">% of capex</button>
+      <button class="btn" data-comp="abs">Absolute</button>
+    </div>
+  </div>
+  <div class="chart-wrap">
+    <canvas id="c2"></canvas>
+  </div>
+  <div class="legend">
+    <div class="leg"><div class="dot" style="background:var(--ai);border-radius:50%"></div><span id="c2lab1">AI as % of global capex</span></div>
+    <div class="leg" id="gfcfLeg" style="display:none"><div class="dot" style="background:var(--gfcf);border-radius:50%"></div>Global GFCF (right axis, $B)</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h2>Data Table</h2>
+    <button class="btn" id="tblBtn">Show</button>
+  </div>
+  <div id="tblWrap" style="display:none">
+    <table id="tbl"></table>
+    <p style="font-size:11px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">* Projected. Figures carry significant uncertainty beyond 2028.</p>
+  </div>
+</div>
+
+<div class="card">
+  <details>
+    <summary>Sources &amp; Methodology</summary>
+    <div class="src">
+      <p><strong>AI Investment</strong> based on reported capex from Alphabet, Microsoft, Amazon, and Meta earnings disclosures (Big 4). Big 4 represent ~80–85% of tracked AI infrastructure spend; totals scaled ×1.15 to approximate full market. Historical context: <a href="https://hai.stanford.edu/ai-index/2024-ai-index-report/economy" target="_blank">Stanford HAI AI Index 2025</a> and <a href="https://www.goldmansachs.com/insights/articles/tracking-trillions-the-assumptions-shaping-scale-of-the-ai-build-out" target="_blank">Goldman Sachs AI build-out model</a>. 2026 Big 4 guidance ~$725B; 2027+ from analyst consensus (BofA, Evercore); 2031 plateau from Goldman baseline ~$1.6T.</p>
+      <p><strong>Category split</strong> (approximate industry analysis): Hardware/GPUs/servers 45%, Data centre construction/power/cooling 40%, Software &amp; other 15%. <strong>Depreciation</strong> straight-line: Software 3yr, Hardware 4yr, Data Centres 30yr. <strong>Net Book Value</strong> = cumulative undepreciated asset stock across all cohorts.</p>
+      <p><strong>Global GFCF</strong> (Gross Fixed Capital Formation): World Bank / IMF data, ~24% of world GDP (~$105T in 2024 → GFCF ~$26T). Projected at ~5% nominal growth. Global produced capital stock ~$520T (McKinsey MGI 2024).</p>
+      <p><strong>Population &amp; AI users</strong>: World population from UN medium-variant projection. AI user base extrapolated from smartphone penetration (6.8B in 2024), converging toward saturation ~2033. 2024 active AI users baseline ~1.5B.</p>
+      <p>Last updated May 2026. Dashboard is manually maintained — figures are estimates. <a href="https://github.com/PaulNLNL/ai-investment-dashboard" target="_blank">View source on GitHub</a>.</p>
+    </div>
+  </details>
+</div>
+
+<script>
+const YRS = [2016,2017,2018,2019,2020,2021,2022,2023,2024,2025,2026,2027,2028,2029,2030,2031,2032,2033,2034,2035];
+const PROJ = 10;
+const D = {
+  sw: [3,5,8,11,12,23,15,27,68,90,128,165,195,218,240,248,255,263,267,270],
+  hw: [9,14,23,32,36,68,45,81,203,270,383,495,585,653,720,743,765,788,801,810],
+  dc: [8,12,20,28,32,60,40,72,180,240,340,440,520,580,640,660,680,700,712,720],
+  gfcf:[20000,21000,22000,22000,20000,23000,24000,25000,26000,27000,28000,29000,30000,31000,32000,33000,34000,35000,36000,37000],
+  aiU: [50,100,200,350,500,600,700,1000,1500,2500,3500,4500,5500,6000,6500,6800,7000,7100,7200,7300],
+  pop: [7400,7500,7600,7700,7800,7900,8000,8050,8100,8200,8250,8300,8350,8400,8450,8500,8550,8600,8650,8700],
+};
+D.tot=YRS.map((_,i)=>D.sw[i]+D.hw[i]+D.dc[i]);
+D.pct=YRS.map((_,i)=>+(D.tot[i]/D.gfcf[i]*100).toFixed(2));
+D.nbv=YRS.map((_,t)=>{
+  let v=0;
+  for(let y=0;y<=t;y++){
+    v+=D.sw[y]*Math.max(0,1-(t-y)/3);
+    v+=D.hw[y]*Math.max(0,1-(t-y)/4);
+    v+=D.dc[y]*Math.max(0,1-(t-y)/30);
+  }
+  return Math.round(v);
+});
+let scale='abs',showNBV=false,comp='pct';
+function sc(arr){
+  if(scale==='abs') return arr;
+  if(scale==='user') return arr.map((v,i)=>D.aiU[i]?Math.round(v*1000/D.aiU[i]):0);
+  return arr.map((v,i)=>D.pop[i]?Math.round(v*1000/D.pop[i]):0);
+}
+function yLabel(){return scale==='abs'?'$B/yr':scale==='user'?'$/AI user':'$/capita';}
+function barCols(s,f){return YRS.map((_,i)=>i>=PROJ?f:s);}
+const GRID='rgba(255,255,255,0.06)',TICK={color:'#8b949e',font:{size:11}};
+function axisY(label,color,right){
+  return{type:'linear',position:right?'right':'left',
+    grid:right?{drawOnChartArea:false}:{color:GRID},
+    ticks:right?{color,font:{size:11}}:TICK,
+    title:{display:true,text:label,color:color||'#8b949e',font:{size:11}}};
+}
+const axisX={grid:{color:GRID},ticks:TICK};
+let ch1,ch2;
+function drawC1(){
+  const ctx=document.getElementById('c1').getContext('2d');
+  if(ch1)ch1.destroy();
+  const ds=[
+    {label:'Software',type:'bar',data:sc(D.sw),stack:'s',backgroundColor:barCols('#bc8cff','rgba(188,140,255,.38)')},
+    {label:'Hardware',type:'bar',data:sc(D.hw),stack:'s',backgroundColor:barCols('#58a6ff','rgba(88,166,255,.38)')},
+    {label:'Data Centres',type:'bar',data:sc(D.dc),stack:'s',backgroundColor:barCols('#3fb950','rgba(63,185,80,.38)')},
+  ];
+  if(showNBV)ds.push({label:'Net Book Value',type:'line',data:sc(D.nbv),yAxisID:'y2',
+    borderColor:'#f0883e',backgroundColor:'transparent',borderWidth:2.5,pointRadius:2,tension:0.3});
+  ch1=new Chart(ctx,{type:'bar',data:{labels:YRS,datasets:ds},options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false}},
+    scales:{x:axisX,y:{...axisY(yLabel()),stacked:true},...(showNBV?{y2:axisY('Net Book Value ($B)','#f0883e',true)}:{})},
+  }});
+}
+function drawC2(){
+  const ctx=document.getElementById('c2').getContext('2d');
+  if(ch2)ch2.destroy();
+  let ds,scales;
+  if(comp==='pct'){
+    ds=[{label:'AI % of global capex',data:D.pct,borderColor:'#f85149',backgroundColor:'rgba(248,81,73,.12)',borderWidth:2,pointRadius:2,fill:true,tension:0.35}];
+    scales={x:axisX,y:{...axisY('% of global GFCF'),stacked:false,ticks:{...TICK,callback:v=>v+'%'}}};
+    document.getElementById('c2lab1').textContent='AI as % of global capex';
+    document.getElementById('gfcfLeg').style.display='none';
+  }else{
+    ds=[
+      {label:'AI capex',data:sc(D.tot),yAxisID:'y',borderColor:'#f85149',backgroundColor:'rgba(248,81,73,.12)',borderWidth:2,pointRadius:2,fill:true,tension:0.35},
+      {label:'Global GFCF',data:D.gfcf,yAxisID:'y2',borderColor:'#6e7681',backgroundColor:'transparent',borderWidth:2,borderDash:[5,4],pointRadius:2,tension:0.35},
+    ];
+    scales={x:axisX,y:{...axisY(yLabel(),'#f85149'),stacked:false},y2:axisY('Global GFCF ($B)','#6e7681',true)};
+    document.getElementById('c2lab1').textContent='AI capex (left axis)';
+    document.getElementById('gfcfLeg').style.display='flex';
+  }
+  ch2=new Chart(ctx,{type:'line',data:{labels:YRS,datasets:ds},options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false}},
+    scales,
+  }});
+}
+function buildTable(){
+  const cols=['Year','SW $B','HW $B','DC $B','Total $B','NBV $B','GFCF $T','AI %','AI Users M','Pop B','$/user','$/capita'];
+  const tbl=document.getElementById('tbl');
+  tbl.innerHTML=`<thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead>`;
+  const tb=document.createElement('tbody');
+  YRS.forEach((yr,i)=>{
+    const tr=document.createElement('tr');
+    if(i>=PROJ)tr.className='proj';
+    const pu=Math.round(D.tot[i]*1000/D.aiU[i]),pp=Math.round(D.tot[i]*1000/D.pop[i]);
+    [yr+(i>=PROJ?'*':''),D.sw[i],D.hw[i],D.dc[i],D.tot[i],D.nbv[i].toLocaleString(),(D.gfcf[i]/1000).toFixed(0),D.pct[i]+'%',D.aiU[i].toLocaleString(),(D.pop[i]/1000).toFixed(2),'$'+pu,'$'+pp]
+    .forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.appendChild(td);});
+    tb.appendChild(tr);
+  });
+  tbl.appendChild(tb);
+}
+document.querySelectorAll('[data-scale]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    scale=btn.dataset.scale;
+    document.querySelectorAll('[data-scale]').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on');drawC1();drawC2();
+  });
+});
+document.querySelectorAll('[data-comp]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    comp=btn.dataset.comp;
+    document.querySelectorAll('[data-comp]').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on');drawC2();
+  });
+});
+document.getElementById('nbvBtn').addEventListener('click',()=>{
+  showNBV=!showNBV;
+  const btn=document.getElementById('nbvBtn');
+  btn.textContent=showNBV?'− Net Book Value':'+ Net Book Value';
+  btn.classList.toggle('on',showNBV);
+  document.getElementById('nbvLeg').style.display=showNBV?'flex':'none';
+  drawC1();
+});
+document.getElementById('tblBtn').addEventListener('click',()=>{
+  const wrap=document.getElementById('tblWrap'),btn=document.getElementById('tblBtn');
+  const open=wrap.style.display!=='none';
+  wrap.style.display=open?'none':'block';
+  btn.textContent=open?'Show':'Hide';
+  if(!open)buildTable();
+});
+drawC1();drawC2();
+</script>
+</body>
+</html>
